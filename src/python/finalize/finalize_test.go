@@ -174,7 +174,8 @@ var _ = Describe("Finalize", func() {
 
 				cmd := exec.Command("bash", filepath.Join(depsDir, depsIdx, "profile.d", "python.fixeggs.sh"))
 				cmd.Env = append(os.Environ(), "DEPS_DIR="+depsDir)
-				Expect(cmd.Run()).To(Succeed())
+				output, err := cmd.CombinedOutput()
+				Expect(err).To(Succeed(), output)
 
 				contents, err := ioutil.ReadFile(file)
 				Expect(err).ToNot(HaveOccurred())

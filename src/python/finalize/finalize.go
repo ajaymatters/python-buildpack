@@ -134,7 +134,14 @@ func (f *Finalizer) ReplaceDepsDirWithLiteral() error {
 
 	for _, dir := range dirs {
 		if err := filepath.Walk(dir, func(path string, _ os.FileInfo, _ error) error {
-			if strings.HasSuffix(path, ".pth") {
+
+			setupToolsEditableInstallPattern := `__editable___.*_finder\.py`
+			setupToolsMatched, err := regexp.MatchString(setupToolsEditableInstallPattern, path)
+			if err != nil {
+				return err
+			}
+
+			if strings.HasSuffix(path, ".pth") || setupToolsMatched {
 				fileContents, err := ioutil.ReadFile(path)
 				if err != nil {
 					return err
@@ -157,5 +164,6 @@ func (f *Finalizer) ReplaceDepsDirWithLiteral() error {
 
 func (f *Finalizer) ReplaceLiteralWithDepsDirAtRuntime() error {
 	scriptContents := `find $DEPS_DIR/%s/python/lib/python*/  -name "*.pth" -print0 2> /dev/null | xargs -r -0 -n 1 sed -i -e "s#DOLLAR_DEPS_DIR#$DEPS_DIR#" &> /dev/null` + "\n"
-	return f.Stager.WriteProfileD("python.fixeggs.sh", fmt.Sprintf(scriptContents, f.Stager.DepsIdx()))
+	scriptContents += `find $DEPS_DIR/%s/python/lib/python*/  -name '__editable___*_finder.py' -print0 2> /dev/null | xargs -r -0 -n 1 sed -i -e "s#DOLLAR_DEPS_DIR#$DEPS_DIR#" &> /dev/null` + "\n"
+	return f.Stager.WriteProfileD("python.fixeggs.sh", fmt.Sprintf(scriptContents, f.Stager.DepsIdx(), f.Stager.DepsIdx()))
 }
