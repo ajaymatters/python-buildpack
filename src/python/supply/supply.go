@@ -206,9 +206,14 @@ func (s *Supplier) HandleMercurial() error {
 		s.Log.Warning("Cloud Foundry does not support Pip Mercurial dependencies while in offline-mode. Vendor your dependencies if they do not work.")
 	}
 
-	if err := s.runPipInstall("mercurial"); err != nil {
+	s.Log.BeginStep("Going to pipInstall mercurial")
+	// --global-option="--include-dirs=/usr/include/python3.4m"
+	cflags := os.Getenv("CFLAGS")
+	s.Log.BeginStep(fmt.Sprintf("CFLAGS val is %s", cflags))
+	if err := s.runPipInstall("mercurial", "--no-build-isolation", fmt.Sprintf(`--global-option="--include-dirs=%sm"`, cflags)); err != nil {
 		return err
 	}
+	s.Log.BeginStep("Done with pipInstall mercurial")
 
 	if err := s.Stager.LinkDirectoryInDepDir(filepath.Join(s.Stager.DepDir(), "python", "bin"), "bin"); err != nil {
 		return err
@@ -300,6 +305,9 @@ func (s *Supplier) InstallPython() error {
 	if err := s.Stager.LinkDirectoryInDepDir(filepath.Join(pythonInstallDir, "lib"), "lib"); err != nil {
 		return err
 	}
+	if err := s.Stager.LinkDirectoryInDepDir(filepath.Join(pythonInstallDir, "include"), "include"); err != nil {
+		return err
+	}
 
 	if err := os.Setenv("PATH", fmt.Sprintf("%s:%s", filepath.Join(s.Stager.DepDir(), "bin"), os.Getenv("PATH"))); err != nil {
 		return err
@@ -310,6 +318,21 @@ func (s *Supplier) InstallPython() error {
 
 	version := regexp.MustCompile(`\d+\.\d+`).FindString(dep.Version)
 	if err := os.Setenv("CFLAGS", fmt.Sprintf("-I%s", filepath.Join(s.Stager.DepDir(), "python", "include", fmt.Sprintf("python%s", version)))); err != nil {
+		return err
+	}
+	if err := os.Setenv("CXXFLAGS", fmt.Sprintf("-I%s", filepath.Join(s.Stager.DepDir(), "python", "include", fmt.Sprintf("python%s", version)))); err != nil {
+		return err
+	}
+	if err := os.Setenv("CPPFLAGS", fmt.Sprintf("-I%s", filepath.Join(s.Stager.DepDir(), "python", "include", fmt.Sprintf("python%s", version)))); err != nil {
+		return err
+	}
+	if err := os.Setenv("C_INCLUDE_PATH", fmt.Sprintf("%s:%s", filepath.Join(s.Stager.DepDir(), "python", "include", fmt.Sprintf("python%sm", version)), os.Getenv("C_INCLUDE_PATH"))); err != nil {
+		return err
+	}
+	if err := os.Setenv("CPLUS_INCLUDE_PATH", fmt.Sprintf("%s:%s", filepath.Join(s.Stager.DepDir(), "python", "include", fmt.Sprintf("python%sm", version)), os.Getenv("CPLUS_INCLUDE_PATH"))); err != nil {
+		return err
+	}
+	if err := os.Setenv("CPATH", fmt.Sprintf("%s:%s", filepath.Join(s.Stager.DepDir(), "python", "include", fmt.Sprintf("python%sm", version)), os.Getenv("CPATH"))); err != nil {
 		return err
 	}
 
@@ -536,10 +559,12 @@ func (s *Supplier) installFfi() error {
 	// we later run HandleFfi, which installs it if a dependency
 	// from requirements.txt needs libffi.
 	if os.Getenv("LIBFFI") != ffiDir {
-		s.Log.BeginStep("Noticed dependency requiring libffi. Bootstrapping libffi.")
+		s.Log.BeginStep("YYYY: Noticed dependency requiring libffi. Bootstrapping libffi.")
 		if err := s.Installer.InstallOnlyVersion("libffi", ffiDir); err != nil {
+			s.Log.BeginStep("XXXX: failed installing libffi")
 			return err
 		}
+		s.Log.BeginStep("XXXX: done with libffi")
 		versions := s.Manifest.AllDependencyVersions("libffi")
 		os.Setenv("LIBFFI", ffiDir)
 		s.Stager.WriteEnvFile("LIBFFI", ffiDir)
