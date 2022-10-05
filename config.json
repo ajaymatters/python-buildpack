@@ -5,7 +5,7 @@
     "windows"
   ],
   "integration": {
-    "harness": "ginkgo",
+    "harness": "switchblade",
     "matrix": [
       { "cached": false, "parallel": true },
       { "cached": false, "parallel": false },
